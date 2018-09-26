@@ -38,11 +38,13 @@ def rr_loop (t, p, n):
     #sys.stdout = open('p' + str(p) + '.txt', 'a')
     current_message_id = 0
     ack_list = []
+    acked = 0
     turn = p
-    while True:
+    t = int(str(t) + str(p))
+    while acked <= 30:
         print(data_heap)
 
-        if turn == 1:
+        if turn == 1 and current_message_id <= 10:
             t = t + 1
             message = str(t) + '-' + str(p) + '*' + str(current_message_id)
             current_message_id = current_message_id + 1
@@ -51,6 +53,17 @@ def rr_loop (t, p, n):
             for i in range(1,n+1):
                 sent = sock.sendto(message.encode(), ('127.0.0.1', 10000+i))
             #sent = sock.sendmsg(message.encode('utf-8'))
+
+        if (len(data_heap) != 0):
+            top_message_time, top_message = data_heap[0]
+            #print (len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]))
+            #print (n)
+            if len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]) == n:
+                print('processed message with id %s from process %s' % (message_id, message_pid))
+                heapq.heappop(data_heap)
+                acked = acked + 1
+                print('number of processed messages: %d' % acked)
+                ack_list = [x for x in ack_list if get_mid(x) != get_mid(top_message) or get_pid(x) != get_pid(top_message)]
 
         print ('\nwaiting to receive message')
         #data, address = sock.recvfrom(1024)
@@ -67,22 +80,15 @@ def rr_loop (t, p, n):
         if message_info != 'ack':
             message_time = message_info
             if t < int(message_time):
+                print ('current time is less than message time: %d < %d', (t, int(message_time)))
                 t = int(message_time)
-            heapq.heappush(data_heap, data)
+            heapq.heappush(data_heap, (int(message_time), data))
             #print ('sending acknowledgement to', address)
             for i in range(1,n+1):
                 sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('127.0.0.1', 10000+i))
         else:
             ack_list.append(data)
             print (ack_list)
-            if (len(data_heap) != 0):
-                top_message = data_heap[0]
-                print (len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]))
-                print (n)
-                if len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]) == n:
-                    print('processed message with id %s from process %s' % (message_id, message_pid))
-                    heapq.heappop(data_heap)
-                    ack_list = [x for x in ack_list if get_mid(x) != get_mid(top_message) or get_pid(x) != get_pid(top_message)]
 
         time.sleep(random.random()*5)
 
