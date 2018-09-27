@@ -8,8 +8,9 @@ from multiprocessing import Process
 
 data_heap = []
 
-multicast_group = '127.0.0.1'
-server_address = ('127.0.0.1', 10000+int(sys.argv[2]))
+multicast_group = '224.0.0.1'
+#server_address = ('127.0.0.1', 10000+int(sys.argv[2]))
+server_address = ('224.0.0.1', 10000)
 
 # Create the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -18,11 +19,17 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 # on all interfaces.
 group = socket.inet_aton(multicast_group)
 mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, mreq)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+#sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton("224.0.0.1") + socket.inet_aton("192.168.5.138"))
+sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT , 1)
+#sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+sock.setsockopt(socket.SOL_SOCKET, socket.IP_MULTICAST_TTL, 2)
+sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+host = socket.gethostbyname(socket.gethostname())
+sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
 
 # Bind to the server address
-sock.bind(server_address)
+sock.bind(('224.0.0.1', 10000))
 
 def get_info(data):
     return data[0:data.find('-')]
@@ -41,17 +48,18 @@ def rr_loop (t, p, n):
     acked = 0
     turn = p
     t = int(str(t) + str(p))
-    while acked <= 30:
+    while True:
         print(data_heap)
 
-        if turn == 1 and current_message_id <= 10:
+        if turn == 1 and current_message_id <= 1:
             t = t + 1
             message = str(t) + '-' + str(p) + '*' + str(current_message_id)
             current_message_id = current_message_id + 1
             print ('sending %s' % message)
             print(type(message.encode('utf-8')))
-            for i in range(1,n+1):
-                sent = sock.sendto(message.encode(), ('127.0.0.1', 10000+i))
+            #for i in range(1,n+1):
+            #    sent = sock.sendto(message.encode(), ('127.0.0.1', 10000+i))
+            sent = sock.sendto(message.encode(), ('224.0.0.1', 10000))
             #sent = sock.sendmsg(message.encode('utf-8'))
 
         if (len(data_heap) != 0):
@@ -84,8 +92,9 @@ def rr_loop (t, p, n):
                 t = int(message_time)
             heapq.heappush(data_heap, (int(message_time), data))
             #print ('sending acknowledgement to', address)
-            for i in range(1,n+1):
-                sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('127.0.0.1', 10000+i))
+            #for i in range(1,n+1):
+            #    sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('127.0.0.1', 10000+i))
+            sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('224.0.0.1', 10000))
         else:
             ack_list.append(data)
             print (ack_list)
