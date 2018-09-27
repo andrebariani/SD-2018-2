@@ -23,7 +23,7 @@ mreq = struct.pack('4sL', group, socket.INADDR_ANY)
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT , 1)
 #sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-sock.setsockopt(socket.SOL_SOCKET, socket.IP_MULTICAST_TTL, 2)
+#sock.setsockopt(socket.SOL_SOCKET, socket.IP_MULTICAST_TTL, 2)
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 host = socket.gethostbyname(socket.gethostname())
 sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
@@ -51,7 +51,7 @@ def rr_loop (t, p, n):
     while True:
         print(data_heap)
 
-        if turn == 1 and current_message_id <= 1:
+        if turn == 1 and current_message_id <= 4:
             t = t + 1
             message = str(t) + '-' + str(p) + '*' + str(current_message_id)
             current_message_id = current_message_id + 1
@@ -62,16 +62,26 @@ def rr_loop (t, p, n):
             sent = sock.sendto(message.encode(), ('224.0.0.1', 10000))
             #sent = sock.sendmsg(message.encode('utf-8'))
 
-        if (len(data_heap) != 0):
-            top_message_time, top_message = data_heap[0]
-            #print (len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]))
-            #print (n)
-            if len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]) == n:
-                print('processed message with id %s from process %s' % (message_id, message_pid))
-                heapq.heappop(data_heap)
-                acked = acked + 1
-                print('number of processed messages: %d' % acked)
-                ack_list = [x for x in ack_list if get_mid(x) != get_mid(top_message) or get_pid(x) != get_pid(top_message)]
+        first_pass = True
+        popped = False
+
+        while first_pass or popped:
+            if (len(data_heap) != 0):
+                top_message_time, top_message = data_heap[0]
+                #print (len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]))
+                #print (n)
+                if len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]) == n:
+                    print('processed message with id %s from process %s' % (message_id, message_pid))
+                    heapq.heappop(data_heap)
+                    popped = True
+                    acked = acked + 1
+                    print('number of processed messages: %d' % acked)
+                    ack_list = [x for x in ack_list if get_mid(x) != get_mid(top_message) or get_pid(x) != get_pid(top_message)]
+                else:
+                    popped = False
+            else:
+                popped = False
+            first_pass = False
 
         print ('\nwaiting to receive message')
         #data, address = sock.recvfrom(1024)
@@ -94,6 +104,7 @@ def rr_loop (t, p, n):
             #print ('sending acknowledgement to', address)
             #for i in range(1,n+1):
             #    sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('127.0.0.1', 10000+i))
+            print('sending ack to process %s with message %s' % (message_pid, message_id))
             sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('224.0.0.1', 10000))
         else:
             ack_list.append(data)
@@ -104,10 +115,4 @@ def rr_loop (t, p, n):
         #print ('received %s bytes from %s' % (len(data), address))
         print (data)
 
-#p = Process(target=rr_loop, args=(int(sys.argv[1]) + 1, int(sys.argv[2]) + 1))
-#p1 = Process(target=rr_loop, args=(int(sys.argv[1]) + 2, int(sys.argv[2]) + 2))
-#p.start()
-#p1.start()
 rr_loop(int(sys.argv[1]),int(sys.argv[2]), int(sys.argv[3]))
-#p.join()
-#p1.join()
