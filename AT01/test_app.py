@@ -71,7 +71,7 @@ def rr_loop (t, p, n):
                 #print (len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]))
                 #print (n)
                 if len([x for x in ack_list if get_mid(x) == get_mid(top_message) and get_pid(x) == get_pid(top_message)]) == n:
-                    print('processed message with id %s from process %s' % (message_id, message_pid))
+                    print('processed message with id %s from process %s' % (get_mid(top_message), get_pid(top_message)))
                     heapq.heappop(data_heap)
                     popped = True
                     acked = acked + 1
