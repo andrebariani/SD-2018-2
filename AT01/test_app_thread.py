@@ -24,11 +24,8 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 # on all interfaces.
 group = socket.inet_aton(multicast_group)
 mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-#sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton("224.0.0.1") + socket.inet_aton("192.168.5.138"))
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT , 1)
-#sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-#sock.setsockopt(socket.SOL_SOCKET, socket.IP_MULTICAST_TTL, 2)
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 host = socket.gethostbyname(socket.gethostname())
 sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
@@ -36,7 +33,10 @@ sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
 # Bind to the server address
 sock.bind(('224.0.0.1', 10000))
 
-turn = int(sys.argv[2])
+if (int(sys.argv[2]) == 1):
+    turn = 1
+else:
+    turn = 2
 
 def get_info(data):
     return data[0:data.find('-')]
@@ -116,7 +116,6 @@ def receiver(p, n, q):
                 q.put(str(int(message_info[0:message_info.find(':')]) + 1) + ':' + str(message_pid))
             else:
                 q.put(str(int(t[0:t.find(':')]) + 1) + ':' + str(p))
-            #q.put(max(message_time, t) + 1)
             heapq.heappush(data_heap, (int(message_time), data))
             print('Sending ack to process %s with message %s' % (message_pid, message_id))
             sock.sendto(('ack-' + message_pid + '*' + message_id).encode(), ('224.0.0.1', 10000))
