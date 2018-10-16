@@ -19,7 +19,7 @@ resource_status = 0 # 0 -> not using resource, 1 -> wants resource, 2 -> using r
 number_of_messages = 5
 
 multicast_group = '224.0.0.1'
-server_address = ('224.0.0.1', 10000+int(sys.argv[2]))
+server_address = ('127.0.0.1', 10000+int(sys.argv[2]))
 #server_address = ('224.0.0.1', 10000)
 
 # Create the socket
@@ -57,22 +57,26 @@ def sender(p, n, w, q):
     current_message_id = 0
     request_resource = 0
     while True:
-        time.sleep(random.random()*5)
-        if random.random() > float(w) and resource_status == 0 and turn == 1:
-            print ('I WANT THE RESOURCE')
+        if random.random() > float(w) and resource_status == 0 and turn == 1 and current_message_id < number_of_messages:
+            print ('\033[93m I WANT THE RESOURCE \033[0m')
             request_resource = 0
             resource_status = 1
-        if turn == 1 and current_message_id < number_of_messages and resource_status == 1 and request_resource == 0:
+        if current_message_id < number_of_messages and resource_status == 1 and request_resource == 0:
+            print('PREPARING TO SEND RESOURCE SOLICITATION')
             t = q.get()
             t = str(int(t[0:t.find(':')]) + 1) + ':' + str(p)
             q.put(t)
             message = str(t) + '-' + str(p) + '*' + str(current_message_id)
             current_message_id = current_message_id + 1
             print ('SENDING %s' % message)
-            request_resource = 1
             for i in range(1, n+1):
-                if i != p:
-                    sent = sock.sendto(message.encode(), ('224.0.0.1', 10000 + i))
+                sent = sock.sendto(message.encode(), ('127.0.0.1', 10000 + i))
+            request_resource = 1
+        print('current_message_id: %d' % current_message_id)
+        print('resource_status in sender: %d' % resource_status)
+        if (current_message_id == number_of_messages):
+            resource_status = 0
+        time.sleep(random.random()*5)
 
 
 def receiver(p, n, w, q):
@@ -82,25 +86,29 @@ def receiver(p, n, w, q):
         print('MESSAGE QUEUE:')
         print(data_heap)
         
-        if oked == n - 1:
-            print('\033[1;32;40m USING RESOURCE %d\n' % 0)
+        if oked == n and resource_status == 1:
+            print('\033[4m I HAVE THE RESOURCE \033[0m')
             resource_status = 2
 
-        if random.random() > float(w) and resource_status == 2:
-            print ('\033[1;31;40m I FREED THE RESOURCE')
-            resource_status = 0
-            for i in range(len(data_heap)):
-                qt, data = heapq.heappop(data_heap)
-                message_pid = get_pid(data)
-                message = 'ok-' + str(message_pid) + '*0'
-                print('SENDING %s' % message)
-                sock.sendto((message).encode(), ('224.0.0.1', 10000 + int(message_pid))) # change to n resources
+        while True and resource_status == 2:
+            time.sleep(random.random()*2)
+            if random.random() > float(w):
+                print ('\033[92m I FREED THE RESOURCE \033[0m')
+                for i in range(len(data_heap)):
+                    qt, data = heapq.heappop(data_heap)
+                    message_pid = get_pid(data)
+                    message = 'ok-' + str(message_pid) + '*0'
+                    print('SENDING %s' % message)
+                    sock.sendto((message).encode(), ('127.0.0.1', 10000 + int(message_pid))) # change to n resources
+                oked = 0
+                resource_status = 0
+                print('resource_status after freeing: %d' % resource_status)
 
         print ('\nwaiting to receive message')
         data = sock.recv(1024).decode()
 
         if turn != 1:
-            turn = turn - 1
+            turn = 1
 
         message_info = get_info(data)
         message_pid = get_pid(data)
@@ -112,27 +120,29 @@ def receiver(p, n, w, q):
             message_time = int(str(int(message_info[0:message_info.find(':')])) + str(message_pid))
             message_time_tmp = int(str(int(message_info[0:message_info.find(':')]) + 1) + str(message_pid))
             t = q.get()
-            tmp = int(str(int(t[0:t.find(':')]) + 1) + str(p))
-            if resource_status == 0:
-                sock.sendto(('ok-' + str(p) + '*0').encode(), ('224.0.0.1', 10000 + int(message_pid))) # change to n resources
-            else:
-                if message_time_tmp < tmp:
-                    sock.sendto(('ok-' + str(p) + '*0').encode(), ('224.0.0.1', 10000 + int(message_pid))) # change to n resources
+            tmp = int(str(int(t[0:t.find(':')])) + str(p))
+            print('my time: %d\n message time: %d' % (tmp, message_time_tmp))
+            if resource_status == 0: # not using resource
+                sock.sendto(('ok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid))) # change to n resources
+                q.put(str(int(t[0:t.find(':')]) + 1) + ':' + str(p))
+            elif resource_status == 1: # plan to use resource
+                if message_time <= tmp:
+                    sock.sendto(('ok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid))) # change to n resources
                     q.put(str(int(message_info[0:message_info.find(':')]) + 1) + ':' + str(message_pid))
                 else:
                     sock.sendto(('nok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid)))
                     q.put(str(int(t[0:t.find(':')]) + 1) + ':' + str(p))
                     heapq.heappush(data_heap, (int(message_time), data))
+            elif resource_status == 2: # using resource
+                heapq.heappush(data_heap, (int(message_time), data))
         elif message_info == 'ok': # change here as well
             oked = oked + 1
 
-        print(data_heap)
         print('NUMBER OF OKS: %d' % oked)
 
+        print (data)
 
         time.sleep(random.random()*5)
-
-        print (data)
 
 # Receive/respond loop
 def rr_loop (t, p, n, w):
