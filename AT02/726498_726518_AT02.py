@@ -12,8 +12,6 @@ import threading
 from queue import Queue
 
 data_heap = []
-processed_order_list = []
-received_order_list = []
 resource_status = 0 # 0 -> not using resource, 1 -> wants resource, 2 -> using resource
 
 number_of_messages = 5
@@ -24,16 +22,6 @@ server_address = ('127.0.0.1', 10000+int(sys.argv[2]))
 
 # Create the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-
-# Tell the operating system to add the socket to the multicast group
-# on all interfaces.
-group = socket.inet_aton(multicast_group)
-mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT , 1)
-sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-host = socket.gethostbyname(socket.gethostname())
-sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
 
 # Bind to the server address
 sock.bind(server_address)
@@ -52,6 +40,12 @@ def get_pid(data):
 def get_mid(data):
     return data[data.find('*')+1:]
 
+def make_time(t,p,n = 0):
+    return str(int(t[0:t.find(':')]) + n) + ':' + str(p)
+
+def time2number(t,p,n = 0):
+    return int(str(int(t[0:t.find(':')]) + n) + str(p))
+
 def sender(p, n, w, q):
     global turn, resource_status
     current_message_id = 0
@@ -64,7 +58,7 @@ def sender(p, n, w, q):
         if current_message_id < number_of_messages and resource_status == 1 and request_resource == 0:
             print('PREPARING TO SEND RESOURCE SOLICITATION')
             t = q.get()
-            t = str(int(t[0:t.find(':')]) + 1) + ':' + str(p)
+            t = make_time(t,p)
             q.put(t)
             message = str(t) + '-' + str(p) + '*' + str(current_message_id)
             current_message_id = current_message_id + 1
@@ -113,25 +107,26 @@ def receiver(p, n, w, q):
         message_info = get_info(data)
         message_pid = get_pid(data)
         message_id = get_mid(data)
+        message_sender = ('127.0.0.1', 10000 + int(message_pid))
 
         print ('message_info: %s\nmessage_pid: %s\nthis pid: %d' % (message_info, message_pid, p))
 
         if message_info != 'ok' and message_info != 'nok':
-            message_time = int(str(int(message_info[0:message_info.find(':')])) + str(message_pid))
-            message_time_tmp = int(str(int(message_info[0:message_info.find(':')]) + 1) + str(message_pid))
+            message_time = time2number(message_info, message_pid)
+            message_time_tmp = time2number(message_info, message_pid, 1)
             t = q.get()
-            tmp = int(str(int(t[0:t.find(':')])) + str(p))
+            tmp = time2number(t,p)
             print('my time: %d\n message time: %d' % (tmp, message_time_tmp))
             if resource_status == 0: # not using resource
-                sock.sendto(('ok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid))) # change to n resources
-                q.put(str(int(t[0:t.find(':')]) + 1) + ':' + str(p))
+                sock.sendto(('ok-' + str(p) + '*0').encode(), message_sender) # change to n resources
+                q.put(make_time(t,p,1))
             elif resource_status == 1: # plan to use resource
                 if message_time <= tmp:
-                    sock.sendto(('ok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid))) # change to n resources
-                    q.put(str(int(message_info[0:message_info.find(':')]) + 1) + ':' + str(message_pid))
+                    sock.sendto(('ok-' + str(p) + '*0').encode(), message_sender) # change to n resources
+                    q.put(make_time(message_info, message_pid, 1))
                 else:
-                    sock.sendto(('nok-' + str(p) + '*0').encode(), ('127.0.0.1', 10000 + int(message_pid)))
-                    q.put(str(int(t[0:t.find(':')]) + 1) + ':' + str(p))
+                    sock.sendto(('nok-' + str(p) + '*0').encode(), message_sender)
+                    q.put(make_time(t, p, 1))
                     heapq.heappush(data_heap, (int(message_time), data))
             elif resource_status == 2: # using resource
                 heapq.heappush(data_heap, (int(message_time), data))
