@@ -50,51 +50,54 @@ def make_time(t,p,n = 0):
 def time2number(t,p,n = 0):
     return int(str(int(t[0:t.find(':')]) + n) + str(p))
 
-def sender(p, n, w, r, q):
+def sender(p, n, osn, hsn):
     global turn, resource_status
     current_message_id = 0
     request_resource = 0
     while True:
         if turn == 1 and current_message_id < number_of_messages:
-            input()
-            print ('\033[93m I WANT THE RESOURCE \033[0m')
-            rs = resource_status.get()
-            rs[r] = 1
-            resource_status.put(rs)
-            print('PREPARING TO SEND RESOURCE SOLICITATION')
-            t = q.get()
-            t = make_time(t,p,1)
-            q.put(t)
-            message = str(t) + '-' + str(p) + '*' + str(r)
-            current_message_id = current_message_id + 1
-            print ('SENDING %s' % message)
-            for i in range(1, n+1):
-                sent = sock.sendto(message.encode(), ('127.0.0.1', 10000 + i))
-            while True:
-                time.sleep(random.random())
-                if num_oks[r] == n:
-                    break
-            print('\033[4m I HAVE THE RESOURCE \033[0m')
-            time.sleep(random.random())
-            input()
-            print ('\033[92m I FREED THE RESOURCE \033[0m')
-            rs = resource_status.get()
-            rs[r] = 0
-            resource_status.put(rs)
-            nodes = rd.get()
-            for i in range(n):
-                if (nodes[r][i] == 1):
-                    sent = sock.sendto(('ok-' + str(p) + '*' + str(r)).encode(), ('127.0.0.1', 10000 + i + 1))
-                    nodes[r][i] = 0
-            num_oks[r] = 0
-            rd.put(nodes)
-
+            command = input()
+            r = int(command[1])
+            if (command[0] == 'w'):
+                print ('\033[93m I WANT THE RESOURCE %d \033[0m' % r)
+                rs = resource_status.get()
+                rs[r] = 1
+                resource_status.put(rs)
+                print('PREPARING TO SEND RESOURCE SOLICITATION')
+                t = hsn.get()
+                osn.get()
+                #t = make_time(t,p,1)
+                osn.put(t)
+                hsn.put(t)
+                message = str(t) + '-' + str(p) + '*' + str(r)
+                current_message_id = current_message_id + 1
+                print ('SENDING %s' % message)
+                for i in range(1, n+1):
+                    sent = sock.sendto(message.encode(), ('127.0.0.1', 10000 + i))
+                while True:
+                    time.sleep(random.random())
+                    if num_oks[r] == n:
+                        break
+                print('\033[4m I HAVE THE RESOURCE %d \033[0m' % r)
+            elif (command[0] == 'r'):
+                print ('\033[92m I FREED THE RESOURCE %d \033[0m' % r)
+                rs = resource_status.get()
+                rs[r] = 0
+                resource_status.put(rs)
+                nodes = rd.get()
+                for i in range(n):
+                    if (nodes[r][i] == 1):
+                        sent = sock.sendto(('ok-' + str(p) + '*' + str(r)).encode(), ('127.0.0.1', 10000 + i + 1))
+                        nodes[r][i] = 0
+                num_oks[r] = 0
+                rd.put(nodes)
             
-        print('current_message_id: %d' % current_message_id)
+            
+        #print('current_message_id: %d' % current_message_id)
         #print('resource_status in sender: %d' % resource_status)
         time.sleep(random.random() * 5)
 
-def receiver(p, n, w, q):
+def receiver(p, n, osn, hsn):
     global turn
     while True:
         print('MESSAGE QUEUE:')
@@ -116,26 +119,31 @@ def receiver(p, n, w, q):
         if message_info != 'ok' and message_info != 'nok':
             message_time = time2number(message_info, message_pid)
             message_time_tmp = time2number(message_info, message_pid, 1)
-            t = q.get()
-            rcs = resource_status.get()
+            t = osn.get()
             tmp = time2number(t,p,1)
-            print('my time: %d\n message time: %d' % (tmp, message_time_tmp))
+            osn.put(t)
+            rcs = resource_status.get()
+            print('my request time: %d\n message time: %d' % (tmp, message_time_tmp))
             print('resource_status: %d' % rcs[message_resource])
             if rcs[message_resource] == 0: # not using resource
-                sock.sendto(('ok-' + str(p) + '*' + str(message_resource)).encode(), message_sender) # change to n resources
-            elif rcs[message_resource] == 1: # plan to use resource
+                sock.sendto(('ok-' + str(p) + '*' + str(message_resource)).encode(), message_sender)
+            elif rcs[message_resource] == 1: # plan to use or am using resource
                 if message_time_tmp <= tmp:
-                    sock.sendto(('ok-' + str(p) + '*' + str(message_resource)).encode(), message_sender) # change to n resources
+                    sock.sendto(('ok-' + str(p) + '*' + str(message_resource)).encode(), message_sender)
                 else:
                     nodes = rd.get()
                     nodes[message_resource][int(message_pid) - 1] = 1
                     sock.sendto(('nok-' + str(p) + '*' + str(message_resource)).encode(), message_sender)
                     rd.put(nodes)
+
+            # lines below update the actual lamport clock
+            t = hsn.get()
+            tmp = time2number(t,p,1)
             
             if tmp > message_time_tmp:
-                q.put(make_time(t,p,1))
+                hsn.put(make_time(t,p,1))
             else:
-                q.put(make_time(message_info, message_pid, 1))
+                hsn.put(make_time(message_info, message_pid, 1))
             
             resource_status.put(rcs)
         elif message_info == 'ok': # change here as well
@@ -146,21 +154,23 @@ def receiver(p, n, w, q):
 
         print (data)
 
-        time.sleep(random.random()*5)
+        time.sleep(random.random() * 5)
 
 
 # Receive/respond loop
-def rr_loop (t, p, n, w):
+def rr_loop (t, p, n):
     t = str(t) + ':' + str(p)
-    queue = Queue()
-    queue.put(t)
+    osn = Queue()
+    hsn = Queue()
+    osn.put(t)
+    hsn.put(t)
     rd.put([x[:] for x in [[0] * n] * n])
-    t_sender = threading.Thread(target=sender, args=(p, n, w, 0, queue))
-    t_receiver = threading.Thread(target=receiver, args=(p, n, w, queue))
+    t_sender = threading.Thread(target=sender, args=(p, n, osn, hsn))
+    t_receiver = threading.Thread(target=receiver, args=(p, n, osn, hsn))
 
     t_sender.start()
     t_receiver.start()
     t_sender.join()
     t_receiver.join()
 
-rr_loop(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), float(sys.argv[4]))
+rr_loop(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
