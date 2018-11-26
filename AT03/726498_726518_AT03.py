@@ -20,9 +20,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 # Bind to the server address
 sock.bind(server_address)
 
-chosen_node = { 'PID': '-1', 'CAPACITY': '-1' }
+chosen_node = { 'PID': sys.argv[1], 'CAPACITY': sys.argv[3] }
 num_acks = 0
 turn = 1
+elid = '-1'
 parent = '-1'
 
 # use the code below for testing purposes
@@ -42,12 +43,23 @@ def sender(p, neighbours):
         for i in neighbours:
             sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
         parent = '0'
+        elid = p
         
         while num_acks != len(neighbours):
-            print ('NODE: %s CAPACITY: %s' % (chosen_node['PID'], chosen_node['CAPACITY']))
-            print ('NUM OF ACKS: %d' % num_acks)
-            time.sleep(random.random())
-        print ('\033[93m RECEIVED ALL ACKS \033[0m')
+            #print ('NODE: %s CAPACITY: %s' % (chosen_node['PID'], chosen_node['CAPACITY']))
+            #print ('NUM OF ACKS: %d' % num_acks)
+            time.sleep(random.random() * 5)
+        print('CURRENT ELID: %s' % elid)
+        if (int(elid) == int(p)):
+            print ('\033[93m RECEIVED ALL ACKS \033[0m')
+            print ('CHOSEN NODE: %s WITH CAPACITY %s' % (chosen_node['PID'], chosen_node['PID']))
+            message = { 'TYPE': 'info', 'PID': p, 'ELID': elid, 'NODE': chosen_node['PID'], 'CAPACITY': chosen_node['CAPACITY']}
+            for i in neighbours:
+                sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
+        else:
+            print ('ELECTION OVERRULED')
+        parent = '-1'
+        p = '-1'
         """
         message = { 'TYPE': 'info', 'PID': p, 'ELID': elid, 'NODE': chosen_node['pid'], 'CAPACITY': chosen_node['capacity']}
         pid = parent.get()
@@ -77,13 +89,14 @@ def receiver(p, neighbours, capacity):
 
         if message_type == 'election':
             print ('RECEIVED ELECTION FROM %s' % message_pid)
-            if message_elid > elid or parent == '-1':
-                print('I HAVE NO PARENT')
+            print ('CURRENT ELID: %s MESSAGE ELID: %s' % (elid, message_elid))
+            if int(message_elid) > int(elid):
+                print('ASSIGNING MY PARENT TO %s' % message_pid)
                 message = { 'TYPE': 'election', 'PID': p, 'ELID': message_elid }
                 parent = message_pid
                 elid = message_elid
-                for i in filter(lambda x: x != parent, neighbours): # error
-                    print(neighbours)
+                for i in filter(lambda x: int(x) != parent, neighbours): # error
+                    print([x for x in neighbours if x != '1'])
                     print ('SENDING TO %s, MY PARENT IS %s' % (i, parent))
                     sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
                 num_acks = 0
@@ -92,19 +105,24 @@ def receiver(p, neighbours, capacity):
                 message = { 'TYPE': 'ack', 'PID': p, 'ELID': elid, 'NODE': p, 'CAPACITY': capacity }
                 sent = sock.sendto(pickle.dumps(message), message_sender)
         elif message_type == 'info': # Election ended
-           none()
+            message_node = message['NODE']
+            message_capacity = message['CAPACITY']
+            message = { 'TYPE': 'info', 'PID': p, 'ELID': elid, 'NODE': message_node, 'CAPACITY': message_capacity}
+            for i in filter(lambda x: int(x) != int(message_pid), neighbours):
+                sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
         elif message_type == 'ack':
             print ('RECEIVED ACK FROM %s' % message_pid)
             num_acks = num_acks + 1
             message_node = message['NODE']
             message_capacity = message['CAPACITY']
             if int(message_capacity) > int(chosen_node['CAPACITY']):
-                for i in filter(lambda x: x != message_pid, neighbours):
-                    sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
+                #for i in filter(lambda x: int(x) != message_pid, neighbours):
+                #    sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
                 chosen_node['PID'] = message_node
                 chosen_node['CAPACITY'] = message_capacity
 
         if num_acks == len(neighbours) - 1:
+            print ('RECEIVED ALL ACKS FROM NEIGHBOURS')
             message = { 'TYPE': 'ack', 'PID': p, 'ELID': elid, 'NODE': chosen_node['PID'], 'CAPACITY': chosen_node['CAPACITY']}
             sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(parent)))
 
