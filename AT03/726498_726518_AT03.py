@@ -3,11 +3,9 @@
 # Gabriel Rodrigues Rocha - RA 726518
 
 import socket
-import struct
 import sys
 import time
 import random
-import heapq
 import threading
 import pickle
 from queue import Queue
@@ -37,15 +35,18 @@ def sender(p, neighbours):
     global turn, chosen_node, num_acks, parent, elid, is_sender
     current_message_id = 0
     request_resource = 0
-    if turn == 1:
+    while turn == 1:
         input()
+        #if (int(elid) != -1):
+        #    continue
         print ('\033[93m STARTING ELECTION WITH ID %d \033[0m' % p)
         is_sender = 1
-        message = { 'TYPE': 'election', 'PID': p, 'ELID': p }
-        for i in neighbours:
-            sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
         parent = '0'
         elid = p
+        message = { 'TYPE': 'election', 'PID': p, 'ELID': p }
+        for i in neighbours:
+            time.sleep(3)
+            sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
         
         while num_acks != len(neighbours):
             #print ('NODE: %s CAPACITY: %s' % (chosen_node['PID'], chosen_node['CAPACITY']))
@@ -54,7 +55,7 @@ def sender(p, neighbours):
         print('CURRENT ELID: %s' % elid)
         if (int(elid) == int(p)):
             print ('\033[93m RECEIVED ALL ACKS \033[0m')
-            print ('CHOSEN NODE: %s WITH CAPACITY %s' % (chosen_node['PID'], chosen_node['PID']))
+            print ('CHOSEN NODE: %s WITH CAPACITY %s' % (chosen_node['PID'], chosen_node['CAPACITY']))
             message = { 'TYPE': 'info', 'PID': p, 'ELID': elid, 'NODE': chosen_node['PID'], 'CAPACITY': chosen_node['CAPACITY']}
             for i in neighbours:
                 sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
@@ -62,12 +63,7 @@ def sender(p, neighbours):
             print ('ELECTION OVERRULED')
         parent = '-1'
         elid = '-1'
-        """
-        message = { 'TYPE': 'info', 'PID': p, 'ELID': elid, 'NODE': chosen_node['pid'], 'CAPACITY': chosen_node['capacity']}
-        pid = parent.get()
-        sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + pid))
-        parent.put(pid)
-        """
+        time.sleep(random.random())
 
 def receiver(p, neighbours, capacity):
     election_ended = 0
@@ -100,12 +96,12 @@ def receiver(p, neighbours, capacity):
                 parent = message_pid
                 elid = message_elid
                 for i in filter(lambda x: int(x) != parent, neighbours): # error
-                    print([x for x in neighbours if x != '1'])
                     print ('SENDING TO %s, MY PARENT IS %s' % (i, parent))
                     sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
+                    time.sleep(3)
                 num_acks = 0
                 is_sender = 0
-            elif message_pid != parent:
+            elif message_pid != parent and is_sender != 1:
                 print('I HAVE A PARENT')
                 message = { 'TYPE': 'ack', 'PID': p, 'ELID': elid, 'NODE': p, 'CAPACITY': capacity }
                 sent = sock.sendto(pickle.dumps(message), message_sender)
@@ -126,8 +122,6 @@ def receiver(p, neighbours, capacity):
             message_node = message['NODE']
             message_capacity = message['CAPACITY']
             if int(message_capacity) > int(chosen_node['CAPACITY']):
-                #for i in filter(lambda x: int(x) != message_pid, neighbours):
-                #    sent = sock.sendto(pickle.dumps(message), ('127.0.0.1', 10000 + int(i)))
                 chosen_node['PID'] = message_node
                 chosen_node['CAPACITY'] = message_capacity
 
