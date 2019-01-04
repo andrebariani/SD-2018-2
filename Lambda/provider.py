@@ -5,7 +5,7 @@ import sys
 
 url = 'https://a8kojphqfk.execute-api.sa-east-1.amazonaws.com/default/CloudBroker'
 headers = {'x-api-key': 'API-KEY-HERE'}
-if (len(argv) > 2):
+if (len(sys.argv) > 2):
     provider_key = sys.argv[2]
 else:
     provider_key = ''
