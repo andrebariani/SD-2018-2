@@ -1,0 +1,13 @@
+{
+    "api_key":"e874460f-771e-4af4-a899-9ad726dee5ee",
+    "changes":
+    [
+    {
+        "resource_id":1,
+        "vCPUs":1,
+        "memory":256,
+        "disk":40,
+        "amount":1
+    }
+    ]
+}

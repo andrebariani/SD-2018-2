@@ -1,0 +1,6 @@
+"api_key (S)","name (S)","access_point (S)"
+"0ae10784-4cf7-4dad-b84f-556a3547d6ad","GCP","hackerspace.hopto.org:8003"
+"76d65807-4fd6-4184-9bd9-378465a85c11","Azure","hackerspace.hopto.org:8001"
+"77b122d6-964d-4ee5-9f1f-acf1f8c6ab1e","IBMC","hackerspace.hopto.org:8004"
+"adbf67c9-5c3c-4532-80d8-709de187fa83","DigitalOcean","hackerspace.hopto.org:8002"
+"e874460f-771e-4af4-a899-9ad726dee5ee","AWS","hackerspace.hopto.org:8000"
