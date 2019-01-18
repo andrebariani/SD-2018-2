@@ -1,18 +1,23 @@
 import json
 from bottle import request, route, run
+from tinydb import TinyDB, Query
 import requests
 import sys
 
 url = 'https://a8kojphqfk.execute-api.sa-east-1.amazonaws.com/default/CloudBroker'
 headers = {'x-api-key': 'API-KEY-HERE'}
-if (len(argv) > 2):
+if (len(sys.argv) > 2):
     provider_key = sys.argv[2]
+    db = TinyDB('db/' + provider_key + '.json')
 else:
+    print('Must provide a provider key!')
     provider_key = ''
+    exit()
 
 @route('/notify', method='POST')
 def access_notification():
     params = json.loads(request.body.getvalue().decode('utf-8'))
+    print(params)
 
 @route('/access', method='POST')
 def access_request():
