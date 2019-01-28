@@ -28,6 +28,7 @@ def access_notification():
 @route('/access', method='POST')
 def access_request():
     params = json.loads(request.body.getvalue().decode('utf-8'))
+    changelog = []
     #r = requests.put(url, data={'type': 'access', 'key': provider_key}, headers=headers)
     req = requests_table.search(Access_Request.access_key == params['access_key'])
     if len(req) == 0:
@@ -40,10 +41,11 @@ def access_request():
         return 'Resources already in use, try again!'
     
     for i in new_resources:
-        requests_table.update(set('amount', i['amount']), doc_id=i.doc_id)
+        resources_table.update(set('amount', i['amount']), doc_id=i.doc_id)
+        changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
 
     # update Lambda
-    r = requests.put(url, data=new_resources, headers=headers)
+    r = requests.put(url, data={'changes': changelog}, headers=headers)
     
     return 'Resources acquired!'
 
@@ -54,10 +56,49 @@ def free_request():
     req = requests_table.search(Access_Request.access_key == params['access_key'])
     if len(req) == 0:
         return 'Wrong access_key!'
+    req_resources = req['resources'].sort(key=lambda x: x['id'])
+    db_resources = resources_table.search(Access_Request.resources.any([x['id'] for x in req_resources])).sort(key=lambda x: x['id'])
     
-    r = requests.put(url, data=req[0], headers=headers)
-    #requests_table.remove(doc_id=req[0].doc_id)
-    return r.text
+    new_resources = [{'id': x['id'], 'amount': x['amount'] + y['amount']} for x, y in zip(req_resources, db_resources)]
+    
+    for i in new_resources:
+        resources_table.update(set('amount', i['amount']), doc_id=i.doc_id)
+        changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
+    
+    r = requests.put(url, data={'changes': changelog}, headers=headers)
+    requests_table.remove(doc_ids=[req.doc_id])
+    return 'Resources freed!'
 
+def update_doc(vCPUs, memory, disk, price, amount):
+     def transform(doc):
+         doc['vCPUs'] = vCPUs
+         doc['memory'] = memory
+         doc['price'] = price
+         doc['amount'] = amount
+     return transform
+
+@route('/update', method='POST')
+def update_database():
+    params = json.loads(request.body.getvalue().decode('utf-8'))
+    print(requests_table.get(doc_id=1))
+    changelog = []
+    for item in params['update_list']:
+        if item['type'] == 'remove':
+            if (resources_table.get(doc_id=item['id']) is None):
+                return 'Resource with id ' + str(item['id']) + 'not found.'
+            else:
+                resources_table.remove(doc_ids=[item['id']])
+                changelog.append({'type': 'remove', 'resource_id': item['id']})
+        elif item['type'] == 'add':
+            r = resources_table.insert(item)
+            changelog.append({'type': 'add', 'id': r, 'resource': resources_table.get(doc_id=r)})
+        else:
+            resources_table.update(update_doc(item['vCPUs'], item['memory'], item['disk'], item['price'], item['amount']), doc_ids=[item['id']])
+            changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=item['id'])})
+            
+    
+    r = requests.put(url, data={'changes': changelog}, headers=headers)
+
+    return json.dumps({'changes': changelog})
 
 run(host='localhost',port=sys.argv[1],debug=True)
