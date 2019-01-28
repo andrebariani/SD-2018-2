@@ -45,7 +45,7 @@ def access_request():
         changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
 
     # update Lambda
-    r = requests.put(url, data={'changes': changelog}, headers=headers)
+    r = requests.put(url, data={'api_key': provider_key, 'changes': changelog}, headers=headers)
     
     return 'Resources acquired!'
 
@@ -99,6 +99,6 @@ def update_database():
     
     r = requests.put(url, data={'changes': changelog}, headers=headers)
 
-    return json.dumps({'changes': changelog})
+    return json.dumps({'api_key': provider_key, 'changes': changelog})
 
-run(host='localhost',port=sys.argv[1],debug=True)
+run(host='0.0.0.0',port=sys.argv[1],debug=True)
