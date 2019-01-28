@@ -90,10 +90,11 @@ def update_database():
                 resources_table.remove(doc_ids=[item['id']])
                 changelog.append({'type': 'remove', 'resource_id': item['id']})
         elif item['type'] == 'add':
-            r = resources_table.insert(item)
+            r = resources_table.insert(item['resource'])
             changelog.append({'type': 'add', 'id': r, 'resource': resources_table.get(doc_id=r)})
         else:
-            resources_table.update(update_doc(item['vCPUs'], item['memory'], item['disk'], item['price'], item['amount']), doc_ids=[item['id']])
+            res = item['resource']
+            resources_table.update(update_doc(res['vCPUs'], res['memory'], res['disk'], res['price'], res['amount']), doc_ids=[item['id']])
             changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=item['id'])})
             
     
