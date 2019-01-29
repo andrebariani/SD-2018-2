@@ -23,25 +23,29 @@ def access_notification():
     params = json.loads(request.body.getvalue().decode('utf-8'))
     print('NOTIFICATION RECEIVED:')
     print(params)
-    db.insert(params)
+    r = requests_table.insert(params)
+    requests_table.update({'valid': True}, doc_ids=[r])
 
 @route('/access', method='POST')
 def access_request():
     params = json.loads(request.body.getvalue().decode('utf-8'))
     changelog = []
     req = requests_table.search(Access_Request.access_key == params['access_key'])
-    if len(req) == 0:
+    if len(req) == 0 or reqresources['valid'] == False:
         return 'Wrong access_key!'
-    req_resources = req['resources'].sort(key=lambda x: x['id'])
-    db_resources = resources_table.search(Access_Request.resources.any([x['id'] for x in req_resources])).sort(key=lambda x: x['id'])
+    req_resources = req[0]['resources']
+    db_resources = [resources_table.get(doc_id=x['id']) for x in req_resources]
+
     
-    new_resources = [{'id': x['id'], 'amount': x['amount'] - y['amount']} for x, y in zip(req_resources, db_resources)]
-    if any(i['amount'] < 0 for i in new_amounts):
+    new_resources = [{'id': x['id'], 'amount': y['amount'] - x['amount']} for x, y in zip(req_resources, db_resources)]
+    if any(i['amount'] < 0 for i in new_resources):
         return 'Resources already in use, try again!'
     
     for i in new_resources:
-        resources_table.update(set('amount', i['amount']), doc_id=i.doc_id)
-        changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
+        resources_table.update({'amount': i['amount']}, doc_ids=[i['id']])
+        changelog.append({'type': 'update', 'id': i['id'], 'resource': resources_table.get(doc_id=i['id'])})
+
+    requests_table.update({'valid': False}, doc_ids=req[0].doc_id)
 
     # update Lambda
     r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
@@ -52,20 +56,23 @@ def access_request():
 @route('/free', method='POST')
 def free_request():
     params = json.loads(request.body.getvalue().decode('utf-8'))
+    changelog = []
     req = requests_table.search(Access_Request.access_key == params['access_key'])
     if len(req) == 0:
         return 'Wrong access_key!'
-    req_resources = req['resources'].sort(key=lambda x: x['id'])
-    db_resources = resources_table.search(Access_Request.resources.any([x['id'] for x in req_resources])).sort(key=lambda x: x['id'])
+    req_resources = req[0]['resources']
+    db_resources = [resources_table.get(doc_id=x['id']) for x in req_resources]
     
-    new_resources = [{'id': x['id'], 'amount': x['amount'] + y['amount']} for x, y in zip(req_resources, db_resources)]
+    new_resources = [{'id': x['id'], 'amount': y['amount'] + x['amount']} for x, y in zip(req_resources, db_resources)]
     
     for i in new_resources:
-        resources_table.update(set('amount', i['amount']), doc_id=i.doc_id)
-        changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
-    
+        resources_table.update({'amount': i['amount']}, doc_ids=[i['id']])
+        changelog.append({'type': 'update', 'id': i['id'], 'resource': resources_table.get(doc_id=i['id'])})
+
+    # update Lambda
     r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
-    requests_table.remove(doc_ids=[req.doc_id])
+    requests_table.remove(doc_ids=[req[0].doc_id])
+    
     return 'Resources freed!'
 
 def update_doc(vCPUs, memory, disk, price, amount):
