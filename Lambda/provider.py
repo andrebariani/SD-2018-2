@@ -29,7 +29,6 @@ def access_notification():
 def access_request():
     params = json.loads(request.body.getvalue().decode('utf-8'))
     changelog = []
-    #r = requests.put(url, data={'type': 'access', 'key': provider_key}, headers=headers)
     req = requests_table.search(Access_Request.access_key == params['access_key'])
     if len(req) == 0:
         return 'Wrong access_key!'
@@ -45,7 +44,7 @@ def access_request():
         changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
 
     # update Lambda
-    r = requests.put(url, data={'api_key': provider_key, 'changes': changelog}, headers=headers)
+    r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
     
     return 'Resources acquired!'
 
@@ -65,7 +64,7 @@ def free_request():
         resources_table.update(set('amount', i['amount']), doc_id=i.doc_id)
         changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=i.doc_id)})
     
-    r = requests.put(url, data={'changes': changelog}, headers=headers)
+    r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
     requests_table.remove(doc_ids=[req.doc_id])
     return 'Resources freed!'
 
@@ -80,7 +79,6 @@ def update_doc(vCPUs, memory, disk, price, amount):
 @route('/update', method='POST')
 def update_database():
     params = json.loads(request.body.getvalue().decode('utf-8'))
-    print(requests_table.get(doc_id=1))
     changelog = []
     for item in params['update_list']:
         if item['type'] == 'remove':
@@ -98,7 +96,9 @@ def update_database():
             changelog.append({'type': 'update', 'id': item['id'], 'resource': resources_table.get(doc_id=item['id'])})
             
     
-    r = requests.put(url, data={'changes': changelog}, headers=headers)
+    r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
+
+    print(r.content)
 
     return json.dumps({'api_key': provider_key, 'changes': changelog})
 
