@@ -31,8 +31,10 @@ def access_request():
     params = json.loads(request.body.getvalue().decode('utf-8'))
     changelog = []
     req = requests_table.search(Access_Request.access_key == params['access_key'])
-    if len(req) == 0 or reqresources['valid'] == False:
+    if len(req) == 0:
         return 'Wrong access_key!'
+    if req[0]['valid'] == False:
+        return 'Invalid access_key!'
     req_resources = req[0]['resources']
     db_resources = [resources_table.get(doc_id=x['id']) for x in req_resources]
 
@@ -45,10 +47,14 @@ def access_request():
         resources_table.update({'amount': i['amount']}, doc_ids=[i['id']])
         changelog.append({'type': 'update', 'id': i['id'], 'resource': resources_table.get(doc_id=i['id'])})
 
-    requests_table.update({'valid': False}, doc_ids=req[0].doc_id)
+    requests_table.update({'valid': False}, doc_ids=[i.doc_id for i in req])
 
     # update Lambda
     r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
+
+    print(r.content)
+
+    print(changelog)
     
     return 'Resources acquired!'
 
@@ -60,6 +66,8 @@ def free_request():
     req = requests_table.search(Access_Request.access_key == params['access_key'])
     if len(req) == 0:
         return 'Wrong access_key!'
+    if req[0]['valid'] == True:
+        return 'Invalic access_key!'
     req_resources = req[0]['resources']
     db_resources = [resources_table.get(doc_id=x['id']) for x in req_resources]
     
@@ -71,7 +79,7 @@ def free_request():
 
     # update Lambda
     r = requests.put(url, data=json.dumps({'api_key': provider_key, 'changes': changelog}), headers=headers)
-    requests_table.remove(doc_ids=[req[0].doc_id])
+    requests_table.remove(doc_ids=[i.doc_id for i in req])
     
     return 'Resources freed!'
 
