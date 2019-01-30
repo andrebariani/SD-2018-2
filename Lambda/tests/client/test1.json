@@ -1,0 +1,11 @@
+{
+    "resource_list":
+    [
+        {
+            "vCPUs":1,
+            "memory":1,
+            "disk":1,
+            "amount":1
+        }
+    ]
+}

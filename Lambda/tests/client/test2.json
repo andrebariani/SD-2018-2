@@ -1,0 +1,17 @@
+{
+    "resource_list":
+    [
+        {
+            "vCPUs":2,
+            "memory":512,
+            "disk":40,
+            "amount":1
+        },
+        {
+            "vCPUs":4,
+            "memory":1024,
+            "disk":512,
+            "amount":3
+        }
+    ]
+}
