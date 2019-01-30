@@ -2,20 +2,27 @@
     "update_list":
     [
         {
+            
             "type": "add",
+            "resource":
+            {
             "vCPUs": 1,
             "memory": 256,
             "disk": 40,
             "amount":5,
             "price": 3
+            }
         },
         {
             "type": "add",
+            "resource":
+            {
             "vCPUs": 2,
             "memory": 512,
             "disk": 80,
             "amount":2,
             "price": 6
+            }
         }
     ]
 }

@@ -3,27 +3,36 @@
     [
         {
             "type": "add",
+            "resource":
+            {
             "vCPUs": 1,
             "memory": 256,
             "disk": 40,
             "amount":1,
             "price": 0.5
+            }
         },
         {
             "type": "add",
+            "resource":
+            {
             "vCPUs": 2,
             "memory": 512,
             "disk": 80,
             "amount":2,
             "price": 2
+            }
         },
         {
             "type": "add",
+            "resource":
+            {
             "vCPUs": 8,
             "memory": 2048,
             "disk": 320,
             "amount":15,
             "price": 30
+            }
         }
     ]
 }
