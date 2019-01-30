@@ -10,7 +10,7 @@
         {
             "vCPUs":4,
             "memory":1024,
-            "disk":512,
+            "disk":80,
             "amount":3
         }
     ]

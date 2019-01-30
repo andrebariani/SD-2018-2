@@ -10,13 +10,13 @@
         {
             "vCPUs":4,
             "memory":1024,
-            "disk":512,
+            "disk":80,
             "amount":3
         },
         {
-            "vCPUs":96,
-            "memory":65536,
-            "disk":4096,
+            "vCPUs":8,
+            "memory":1024,
+            "disk":160,
             "amount":10
         },
         {
