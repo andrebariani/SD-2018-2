@@ -6,8 +6,8 @@
             "vCPUs": 1,
             "memory": 256,
             "disk": 40,
-            "amount":5,
-            "price": 3
+            "amount":1,
+            "price": 0.5
         },
         {
             "type": "add",
@@ -15,7 +15,15 @@
             "memory": 512,
             "disk": 80,
             "amount":2,
-            "price": 6
+            "price": 2
+        },
+        {
+            "type": "add",
+            "vCPUs": 8,
+            "memory": 2048,
+            "disk": 320,
+            "amount":15,
+            "price": 30
         }
     ]
 }

@@ -3,31 +3,35 @@
     [
         {
             "type": "add",
-            "vCPUs": "1",
-            "memory": "256",
-            "disk": "40",
-            "amount":5
+            "vCPUs": 1,
+            "memory": 256,
+            "disk": 40,
+            "amount":5,
+            "price": 1.5
         },
         {
             "type": "add",
-            "vCPUs": "2",
-            "memory": "512",
-            "disk": "80",
-            "amount":2
+            "vCPUs": 2,
+            "memory": 512,
+            "disk": 80,
+            "amount":2,
+            "price": 3.5
         },
         {
             "type": "add",
-            "vCPUs": "4",
-            "memory": "1024",
-            "disk": "160",
-            "amount":10
+            "vCPUs": 4,
+            "memory": 1024,
+            "disk": 160,
+            "amount":10,
+            "price": 8
         },
         {
             "type": "add",
-            "vCPUs": "8",
-            "memory": "2048",
-            "disk": "320",
-            "amount":1
+            "vCPUs": 8,
+            "memory": 2048,
+            "disk": 320,
+            "amount":1,
+            "price": 20
         }
     ]
 }

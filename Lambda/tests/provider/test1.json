@@ -3,10 +3,11 @@
     [
         {
             "type": "add",
-            "vCPUs": "1",
-            "memory": "256",
-            "disk": "40",
-            "amount":5
+            "vCPUs": 1,
+            "memory": 256,
+            "disk": 40,
+            "amount":5,
+            "price": 1
         }
     ]
 }
